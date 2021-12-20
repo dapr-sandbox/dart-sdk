@@ -1,0 +1,22 @@
+# https://docs.dapr.io/reference/components-reference/supported-bindings/rabbitmq/
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: binding-rabbit
+  namespace: default
+spec:
+  type: bindings.rabbitmq
+  version: v1
+  metadata:
+  - name: consumerID
+    value: "{uuid}"
+  - name: host
+    value: "amqp://guest:guest@localhost:5672"
+  - name: queueName
+    value: "test-queue"
+  - name: qos
+    value: 1
+  - name: retain
+    value: "false"
+  - name: cleanSession
+    value: "false"

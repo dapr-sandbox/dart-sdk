@@ -1,0 +1,107 @@
+name: E2E & unit tests
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - main
+      - release-*
+
+jobs:
+  run-all-tests:
+    runs-on: ubuntu-latest          
+    env:
+      DAPR_INSTALL_URL: https://raw.githubusercontent.com/dapr/cli/master/install/install.sh
+      SRV_COMP_DIR: ../../infrastructure/gh_actions_components/server
+      CLNT_COMP_DIR: ../../infrastructure/gh_actions_components/client
+    services:
+      dapr_rabbitmq:        
+        image: rabbitmq:3-management-alpine        
+        ports:
+          - 5672:5672
+          - 15672:15672
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Dapr - Install CLI
+        run: wget -q ${{ env.DAPR_INSTALL_URL }} -O - | /bin/bash -s ${{ env.DAPR_CLI_VER }}
+        
+      - name: Dapr - Initialize
+        run: dapr init
+        
+      # - name: Run RabbitMQ container
+      #   run: docker run -d -p 5672:5672 --name dapr_rabbitmq rabbitmq:3-management-alpine
+      - name: List docker containers
+        run: docker ps
+
+      - name: Install dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      
+      - name: Install Melos
+        run: dart pub global activate melos
+      
+      - name: Install coverage package for dart
+        run: dart pub global activate coverage
+      
+      - name: Install jq for processing json in terminal
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Run client unit tests
+        run: |
+          melos run test:client:unit
+          
+      - name: Run client http e2e tests        
+        run: |
+          melos run test:client:e2e:http
+          export test_result=$(tail -1 packages/dapr_client/test/reports/tests_client_http.json)        
+          if $(echo $test_result | jq '.success') == true; then
+            echo "No error found: All tests passed";
+          else
+            echo "Some test have failed. Pleas verify the logs"
+            exit 1;
+          fi
+
+      - name: Run client grpc e2e tests        
+        run: |
+          melos run test:client:e2e:grpc | tee cln_grpc.txt
+          export test_result=$(tail -1 packages/dapr_client/test/reports/tests_client_grpc.json)        
+          if $(echo $test_result | jq '.success') == true; then
+            echo "No error found: All tests passed";
+          else
+            echo "Some test have failed. Pleas verify the logs"
+            exit 1;
+          fi
+
+      - name: Run server http e2e tests        
+        run: |
+          melos run test:server:e2e:http | tee srv_http.txt
+          export test_result=$(tail -1 packages/dapr_server/test/reports/tests_server_http.json)        
+          if $(echo $test_result | jq '.success') == true; then
+            echo "No error found: All tests passed";
+          else
+            echo "Some test have failed. Pleas verify the logs"
+            exit 1;
+          fi
+
+      - name: Run server grpc e2e tests        
+        run: |
+          melos run test:server:e2e:grpc | tee srv_grpc.txt
+          export test_result=$(tail -1 packages/dapr_server/test/reports/tests_server_grpc.json)        
+          if $(echo $test_result | jq '.success') == true; then
+            echo "No error found: All tests passed";
+          else
+            echo "Some test have failed. Pleas verify the logs"
+            exit 1;
+          fi
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2

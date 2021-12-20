@@ -1,0 +1,76 @@
+version: "3"
+
+services:
+  ###############################
+  ## Redis state store service
+  ###############################
+  # redis:
+  #   container_name: "test-redis"
+  #   image: "redis:alpine"
+  #   ports:
+  #     - "6380:6379"
+  #   networks:
+  #     - dart-sdk-network
+  #############################################
+  ## Mosquitto MQTT message broker for bindings
+  #############################################
+  # mosquitto:
+  #   container_name: "test-mosquitto"
+  #   image: "eclipse-mosquitto"
+  #   ports:
+  #     - "1883:1883"
+  #     - "9000:9001"
+  #   volumes:
+  #     - type: bind
+  #       source: ../infrastructure/mosquitto.conf
+  #       target: /mosquitto/config/mosquitto.conf
+  #   networks:
+  #     - dart-sdk-network
+  ###################################
+  ## Rabitt MQ 
+  ###################################
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'dapr_rabbitmq'
+    ports:
+        - 5672:5672
+        - 15672:15672
+    networks:
+        - dart_net
+  ############################
+  ## Dapr placement service
+  ############################
+  # placement:
+  #   container_name: "test-dapr-placement"
+  #   image: "daprio/dapr"
+  #   command: ["./placement", "-port", "50006"]
+  #   ports:
+  #     - "50006:50006"
+  #   networks:
+  #     - dart-sdk-network
+  ###################################
+  ##
+  ## Dapr dart-sdk dev environment
+  ##
+  ## Builds the environtment from 
+  ## the Dockerfile in this directory
+  ###################################
+  dart-sdk-dev-env:
+    container_name: "dart-sdk-dev-env"    
+    build: 
+      context: .
+      dockerfile: Dockerfile    
+    volumes:
+      # Forwards the local Docker socket to the container.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Update this to wherever you want VS Code to mount the folder of your project
+      - ..:/workspace:cached
+    # Overrides default command so things don't shut down after the process ends.
+    # entrypoint: /usr/local/share/docker-init.sh
+    command: sleep infinity 
+    networks:
+      - dart_net
+# volumes:
+networks:
+  dart_net:
+    name: "dart_net"

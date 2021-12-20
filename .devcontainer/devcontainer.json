@@ -1,0 +1,59 @@
+// For format details, see https://aka.ms/vscode-remote/devcontainer.json.
+{
+    "name": "Dapr - DART SDK",
+    // "context": "..",
+    // "dockerFile": "Dockerfile",
+    "dockerComposeFile": [
+        "env-compose.yaml"
+    ],
+    "service": "dart-sdk-dev-env",
+    // Set *default* container specific settings.json values on container create.
+    "settings": {
+        "terminal.integrated.profiles.linux": {
+            "bash": {
+                "path": "bash"
+            },
+            "zsh": {
+                "path": "zsh"
+            },
+            "fish": {
+                "path": "fish"
+            },
+            "tmux": {
+                "path": "tmux",
+                "icon": "terminal-tmux"
+            },
+            "pwsh": {
+                "path": "pwsh",
+                "icon": "terminal-powershell"
+            }
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+    },
+    // Add the IDs of extensions you want installed when the container is created.
+    "extensions": [
+        "ms-azuretools.vscode-dapr",
+        "ms-azuretools.vscode-docker",
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+        "blaxou.freezed",
+        "zxh404.vscode-proto3",
+    ],
+    // "mounts": [
+    //     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    // ],
+    "workspaceFolder": "/workspace",
+    // All dart, flutter packages in this repository is maintained using melos.
+    // See : https://melos.invertase.dev/    
+    // Melos is installed as part of Docker setup. See Dockerfile.
+    // This command installs melos and bootstraps all the packages by run pub get on all the dart packages.    
+    "postAttachCommand": "dapr init --network dart_net && melos bootstrap && docker rename dapr_redis_dart_net dapr_redis",
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+    // Uncomment to connect as a non-root user. See https://aka.ms/vscode-remote/containers/non-root.
+    // "remoteUser": "vscode",
+    "remoteEnv": {
+        "CLNT_COMP_DIR": "./test/components",
+        "SRV_COMP_DIR": "./test/components",
+    }
+}

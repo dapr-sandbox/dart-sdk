@@ -1,0 +1,24 @@
+name: dapr_server
+description: A starting point for Dart libraries or applications.
+version: 0.0.1
+# homepage: https://www.example.com
+
+environment:
+  sdk: '>=2.14.4 <3.0.0'
+
+
+# TODO: Remove before publishing and change the dapr_common to a versioned 
+# dependency
+publish_to: none
+dependencies:  
+  grpc: ^3.0.2
+  dapr_proto: ^0.0.3  
+  dapr_common:
+    path: ../dapr_common
+  shelf_plus: ^1.0.0
+
+dev_dependencies:
+  http: ^0.13.4
+  lints: ^1.0.0
+  test: ^1.16.0
+  mockito: ^5.0.16

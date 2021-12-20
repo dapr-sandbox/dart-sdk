@@ -1,0 +1,150 @@
+name: dapr_dart_sdk
+
+packages:
+  - packages/**
+
+scripts:
+  update_dapr_grpc:
+    run: |
+      cd packages/dapr_proto
+      ./scripts/sh/update_dapr_grpc.sh
+    # select_package:
+    #   - "*dapr_client"
+    #   - "*dapr_flutter"
+
+  #############################################################
+  ## Regenerate freezed class definitions for common package ##
+  #############################################################
+  freezed:build:common:
+    run: melos exec --scope="*dapr_common" -- dart run build_runner build --delete-conflicting-outputs
+
+  ##########################################################
+  ## Regenerate freezed class definitions of dapr_client ##
+  ##########################################################
+  freezed:build:client:
+    run: |
+      melos exec --scope="*dapr_client" -- dart run build_runner build --build-filter "package:dapr_client/src/models/generated/*" --delete-conflicting-outputs
+
+  ##########################################################
+  ## Regenerate freezed class definitions of dapr_server ##
+  ##########################################################
+  freezed:build:server:
+    run: |
+      melos exec --scope="*dapr_server" -- dart run build_runner build --build-filter "package:dapr_server/src/models/generated/*" --delete-conflicting-outputs
+
+  ##################################################################
+  ## Download latest proto files and generate stubs in dapr_proto ##
+  ##################################################################
+  publish:proto:
+    run: melos exec --scope="*dapr_proto" -- pub publish
+
+  start:dapr:
+    run: |
+      melos exec --scope="*dapr_client" -- TEST_SECRET_1=secret_val_1 TEST_SECRET_2=secret_val_2 dapr run --app-id test-suite --app-protocol grpc --app-port 50001 --dapr-http-port 50000 --dapr-grpc-port 50002 --components-path ./test/components
+
+  #######################################
+  ## Run all tests - dev environment ##
+  #######################################
+  test:all:
+    run: |
+      melos run test:e2e
+      melos run test:unit
+
+  ############################################################
+  ## unit tests - for both dapr_client and dapr_server ##
+  ############################################################
+  test:unit:
+    run: |
+      melos run test:client:unit
+
+  ############################################################
+  ## End to End test - for both dapr_client and dapr_server ##
+  ############################################################
+  test:e2e:
+    run: |
+      melos run test:server:e2e
+      melos run test:client:e2e
+
+  #####################################################
+  ## End to End and Unit test - for both dapr_client ##
+  #####################################################
+  test:client:
+    run: |
+      melos run test:client:e2e
+      melos run test:client:unit
+
+  ############################################
+  ## End to End test scritps for dapr_client##
+  ############################################
+  test:client:e2e:
+    run: |
+      melos run test:client:e2e:http
+      melos run test:client:e2e:grpc
+    description: Runs end to end tests on both http client and grpc client
+  test:client:e2e:http:
+    run: |
+      melos exec --fail-fast --scope="*dapr_client" -- TEST_SECRET_1=secret_val_1 TEST_SECRET_2=secret_val_2 dapr run --app-id http-test-suite --app-protocol http --app-port 50001 --dapr-http-port 50000 --components-path=${CLNT_COMP_DIR} dart run test 'test/e2e/http/http_test.dart' -- --coverage="\$MELOS_ROOT_PATH/coverage/client" --file-reporter json:test/reports/tests_client_http.json
+    description: Runs end to end tests on http client
+  test:client:e2e:grpc:
+    run: |
+      melos exec --fail-fast --scope="*dapr_client" -- TEST_SECRET_1=secret_val_1 TEST_SECRET_2=secret_val_2 dapr run --app-id grpc-test-suite --app-protocol grpc --app-port 50001 --dapr-grpc-port 50000 --components-path=${CLNT_COMP_DIR} dart run test 'test/e2e/grpc/grpc_test.dart' -- --coverage="\$MELOS_ROOT_PATH/coverage/client" --file-reporter json:test/reports/tests_client_grpc.json
+    description: Runs end to end tests on grpc client
+
+  ############################################
+  ## Unit test scritps for dapr_client##
+  ############################################
+  test:client:unit:
+    run: |
+      melos run test:client:unit:env
+      melos run test:client:unit:general
+    description: Runs all unit tests for dapr_client
+  test:client:unit:env:
+    run: |
+      melos exec --fail-fast --scope="*dapr_client" -- DAPR_HTTP_PORT=3400 DAPR_GRPC_PORT=54000 dart run test 'test/unit/env_defaults/dapr_client_env_test.dart' --coverage="\$MELOS_ROOT_PATH/coverage/client" --file-reporter json:test/reports/tests_client_unit_env.json
+    description: Runs unit test to verify if dapr_client uses the environment variables properly to initialize the daprPort.
+  test:client:unit:general:
+    run: |
+      melos exec --fail-fast --scope="*dapr_client" -- dart run test 'test/unit/dapr_client_test.dart' --coverage="\$MELOS_ROOT_PATH/coverage/client" --file-reporter json:test/reports/tests_client_unit.json
+    description: Runs unit test to verify if dapr_client instance is created correctly in all cases.
+
+  #####################################################
+  ## End to End and Unit test - for both dapr_server ##
+  #####################################################
+  test:server:
+    run: |
+      melos run test:server:e2e
+    # melos run test:server:unit
+
+    ############################################
+  ## End to End test scritps for dapr_server##
+  ############################################
+  test:server:e2e:
+    run: |
+      melos run test:server:e2e:http
+      melos run test:server:e2e:grpc
+    description: Runs end to end tests on both http server and grpc server
+  test:server:e2e:http:
+    run: |
+      melos exec --fail-fast --scope="*dapr_server" -- dapr run --app-id http-test-suite --app-protocol http --app-port 3000 --dapr-http-port 3500 --components-path=$SRV_COMP_DIR dart run test "test/http/http_test.dart" -- --coverage="\$MELOS_ROOT_PATH/coverage/server" --file-reporter json:test/reports/tests_server_http.json
+    description: Runs end to end tests on http server
+  test:server:e2e:grpc:
+    run: |
+      melos exec --fail-fast --scope="*dapr_server" -- dapr run --app-id grpc-test-suite --app-protocol grpc --app-port 3000 --dapr-http-port 3500 --components-path=$SRV_COMP_DIR dart run test 'test/grpc/grpc_test.dart' -- --coverage="\$MELOS_ROOT_PATH/coverage/server" --file-reporter json:test/reports/tests_server_grpc.json
+    description: Runs end to end tests on grpc server
+
+  ################################
+  ## Code Coverage related scripts
+  ################################
+  lcov:
+    run: |
+      melos run lcov:client &&
+      melos run lcov:server 
+      curl -Os https://uploader.codecov.io/latest/linux/codecov &&
+      chmod +x codecov &&
+      ./codecov -t ${CODECOV_TOKEN}
+  lcov:client:
+    run: |
+      melos exec --scope="*dapr_client" -- format_coverage --lcov --in="../../coverage" --out="../../coverage/coverage_client.lcov"  --packages=".packages" --report-on=lib
+  lcov:server:
+    run: |
+      melos exec --scope="*dapr_server" -- format_coverage --lcov --in="../../coverage" --out="../../coverage/coverage_server.lcov"  --packages=".packages" --report-on=lib
